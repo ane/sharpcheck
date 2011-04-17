@@ -39,7 +39,7 @@ namespace DotCheck
         static int arraySize = 0;
         static int stringSize = 0;
 
-        public static IEnumerable<int> ShrinkInt(int startValue)
+        public static IEnumerable<int> ShrinkInteger(int startValue)
         {
             int shrunk = startValue / 2;
             while (Math.Abs(shrunk) >= 1)
@@ -55,7 +55,7 @@ namespace DotCheck
         {
             // Returns a random number.
             Generator = (rand) => { return rand.Next(Int32.MinValue, Int32.MaxValue); },
-            Shrinker = ShrinkInt
+            Shrinker = ShrinkInteger
         };
 
         //public static Int32 Arbitrary(this Int32 discard, Random rand)

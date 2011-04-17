@@ -19,6 +19,12 @@ namespace DotCheck
             Shrinker = shrinker;
         }
 
+        public Arbitrary(Func<Random, T> gen)
+        {
+            Generator = gen;
+            Shrinker = null;
+        }
+
         public Arbitrary()
         {
             // Default initializations
