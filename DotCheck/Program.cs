@@ -61,8 +61,9 @@ namespace DotCheck
                 }
             };
 
-            Check.Verbose((int x) => x % 2 == 0, oddNumbers);
-            Check.Quick<List<int>>(inp => inp.Take(5).Count() <= 5);
+            Check.Quick((int x) => x % 2 == 0, oddNumbers);
+            Check.Verbose((int x) => Math.Abs(x) >= 0);
+            Check.Quick<List<int>>(inp => inp.Take(5).Count() == 5);
             //prop_all_char.Quick();
             Console.Read();
         }

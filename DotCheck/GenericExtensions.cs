@@ -25,8 +25,11 @@ namespace DotCheck
                 }
                 return Enumerable.Empty<T>();
             },
-            // A list is shrunk to an empty list.
-            Shrinker = (list) => new[] { Enumerable.Empty<T>() }
+            // A list is shrunk to an empty list of lists.
+            Shrinker = (list) =>
+            {
+                return Enumerable.Empty<List<T>>();    
+            }
         };
     }
 }

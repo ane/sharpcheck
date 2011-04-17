@@ -352,7 +352,7 @@ namespace DotCheck
                     Console.Write("FAILED, falsifiable after " + checks + " tests, with input ");
                     if (numShrinks > 0)
                         Console.Write("(" + numShrinks + " shrinks)");
-                    Console.WriteLine(": `" + lastShrunk.ToString() + "'");
+                    Console.WriteLine(": `" + Util.Repr(lastShrunk) + "'");
                 }
             }
             else
