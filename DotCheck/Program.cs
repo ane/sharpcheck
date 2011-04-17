@@ -1,5 +1,5 @@
 ﻿/*
- * ArbitraryCheck - A port of QuickCheck to C#
+ * DotCheck - A port of QuickCheck to C#
  * 
  * Copyright (c) 2011, Antoine Kalmbach <ane@iki.fi>
  * All rights reserved.
@@ -45,10 +45,14 @@ namespace DotCheck
 
         static void Main(string[] args)
         {
-            var arb = new Arbitrary<int> ( () => 5, () => 0 );
+            
+            Func<string, bool> propAllChar = (str) => {
+                return str.ToList<char>().All(c => c.GetType() == typeof(char));
+            };
 
-            Check.Quick<int>(input => Math.Abs(input) >= 0);
-            Check.Quick<List<int>>(inp => inp.Take(5).Count() <= 5);
+            Check.Verbose<int>(input => Math.Abs(input) >= 0);
+            //Check.Quick<List<int>>(inp => inp.Take(5).Count() <= 5);
+            //prop_all_char.Quick();
             Console.Read();
         }
     }

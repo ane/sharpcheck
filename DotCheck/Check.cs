@@ -1,5 +1,5 @@
 ﻿/*
- * ArbitraryCheck - A port of QuickCheck to C#
+ * DotCheck - A port of QuickCheck to C#
  * 
  * Copyright (c) 2011, Antoine Kalmbach <ane@iki.fi>
  * All rights reserved.
@@ -41,14 +41,17 @@ namespace DotCheck
     {
         private static int NumChecks = 100;
 
+        private static Random rand = new Random((int)DateTime.Now.Ticks);
+
+
         /// <summary>
         /// Gets the Arbitrary methods defined for typeName. If the type does not implement it, it returns an empty list.
         /// </summary>
         /// <param name="typeName">The type to check.</param>
         /// <returns>The list of Arbitrary methods.</returns>
-        public static IEnumerable<MethodInfo> GetArbitraryMethods(this Type typeName)
+        public static IEnumerable<MethodInfo> GetGenerators(this Type typeName)
         {
-            // Get the extension methods for the Input type by querying all types and methods
+            // Get the extension methods for the TInput type by querying all types and methods
             // in the current assembly.
             // See also: http://stackoverflow.com/questions/299515/c-reflection-to-identify-extension-methods
             var methods = typeof(Check).Assembly.GetTypes().Where(t => t.IsSealed && !t.IsGenericType && !t.IsNested)
@@ -86,11 +89,20 @@ namespace DotCheck
             }
             else
             {
-                var arbitraryMethods = from method in extensionMethods
-                                       where method.GetParameters().Count() == 1
-                                       && method.ReturnType == typeName
-                                       select method;
-                return arbitraryMethods;
+                // Instantiate a generic type of Arbitrary<typeName>
+                Type arbitraryType = typeof(Arbitrary<>).MakeGenericType(typeName);
+                // Find all types in the current assembly, and look for fields of the above type
+                // (e.g. given int, instances of Arbitrary<int>)
+                var types = typeof(Check).Assembly.GetTypes().Where(t => t.IsSealed && !t.IsNested && !t.IsGenericType);
+                var arbitraryInstanceFields = types.SelectMany(t => t.GetFields()).Where(fi => fi.FieldType == arbitraryType);
+                // Map all generators from the above instances.
+                FieldInfo generatorField = typeof(Arbitrary<>).MakeGenericType(typeName).GetField("Generator");
+                var arbitraryGenerators = arbitraryInstanceFields.Select(fi => fi.GetValue(null)).Select(obj => generatorField.GetValue(obj));
+                // Pop the first generator, there might be multiple.
+                // TODO: Which sea^Wmethod should I take?
+                var firstGenerator = (MulticastDelegate)arbitraryGenerators.First();
+                // Get invocation information from the generator.
+                return new[] { firstGenerator.Method };
             }
         }
 
@@ -101,23 +113,23 @@ namespace DotCheck
         /// <returns></returns>
         public static bool HasArbitrary(this Type typeName)
         {
-            return GetArbitraryMethods(typeName).Any();
+            return GetGenerators(typeName).Any();
         }
 
         /// <summary>
         /// Calls the Arbitrary method for this type.
         /// </summary>
-        /// <typeparam name="Input">The type parameter to call Arbitrary for.</typeparam>
+        /// <typeparam name="TInput">The type parameter to call Arbitrary for.</typeparam>
         /// <returns>A value returned by Arbitrary.</returns>
         /// <exception cref="ArgumentException"></exception>
-        public static Input CallArbitrary<Input>()
+        public static TInput CallArbitrary<TInput>(Random rand)
         {
-            Type inputType = typeof(Input);
+            Type inputType = typeof(TInput);
             if (HasArbitrary(inputType))
             {
-                var arbitraryMethods = GetArbitraryMethods(inputType);
+                var arbitraryMethods = GetGenerators(inputType);
                 MethodInfo method = arbitraryMethods.First();
-                return (Input)method.Invoke(null, new object[] { null });
+                return (TInput)method.Invoke(null, new object[] { null, rand });
             }
             else
             {
@@ -125,15 +137,24 @@ namespace DotCheck
             }
         }
 
+        public static void Quick<TInput>(this Func<TInput, bool> func)
+        {
+            Quick<TInput>(func, false);
+        }
+
+        public static void Verbose<TInput>(this Func<TInput, bool> func)
+        {
+            Quick<TInput>(func, true);
+        }
 
         /// <summary>
-        /// Checks that the invariant func matches for arbitrary inputs of Input.
+        /// Checks that the invariant func matches for arbitrary TInputs of TInput.
         /// </summary>
-        /// <typeparam name="Input">The type to generate random inputs of.</typeparam>
-        /// <param name="func">The function invariant to test.</param>
-        public static void Quick<Input>(this Func<Input, bool> func)
+        /// <typeparam name="TTInput">The type to generate random TInputs of.</typeparam>
+        /// <param name="propertyFunc">The function invariant to test.</param>
+        public static void Quick<TInput>(this Func<TInput, bool> propertyFunc, bool verbose)
         {
-            var arbitraryMethods = GetArbitraryMethods(typeof(Input));
+            var arbitraryMethods = GetGenerators(typeof(TInput));
 
             // Check if Arbitrary is implemented.
             if (arbitraryMethods.Any())
@@ -141,18 +162,22 @@ namespace DotCheck
                 // Pop the first one.
                 MethodInfo method = arbitraryMethods.First();
                 int checks = 0;
-                Input arbitraryValue = default(Input);
+                TInput arbitraryValue = default(TInput);
+                // Random number generator.
                 for (; checks < NumChecks; checks++)
                 {
-                    arbitraryValue = (Input)method.Invoke(null, new object[] { null });
-                    // Call the Arbitrary method and cast to Input, tossing the function a discardable null as parameter.
+                    // Call Generator with rand.
+                    arbitraryValue = (TInput)method.Invoke(null, new object[] { rand });
+                    // Call the Arbitrary method and cast to TInput, tossing the function a discardable null as parameter.
                     // Test the function against the arbitrary value.
-                    if (!func(arbitraryValue))
+                    if (!Test<TInput>(arbitraryValue, propertyFunc, verbose))
                     {
-                        // Check failed!
+                        // Check failed, start shrinking.
                         break;
                     }
                 }
+
+                // Begin shrinking.
 
                 if (checks == NumChecks)
                 {
@@ -161,13 +186,28 @@ namespace DotCheck
 
                 else
                 {
-                    Console.WriteLine("Failed after " + checks + " tests, with input `" + arbitraryValue.ToString() + "'");
+                    Console.WriteLine("Failed after " + checks + " tests, with TInput `" + arbitraryValue.ToString() + "'");
                 }
             }
             else
             {
-                throw new ArgumentException("The provided type parameter `" + typeof(Input) + "' has no Arbitrary extension method implemented for it.");
+                throw new ArgumentException("The provided type parameter `" + typeof(TInput) + "' has no Arbitrary extension method implemented for it.");
             }
+        }
+
+        private static bool Test<TInput>(TInput arbitraryValue, Func<TInput, bool> func)
+        {
+            return Test<TInput>(arbitraryValue, func, false);
+        }
+
+        private static bool Test<TInput>(TInput arbitraryValue, Func<TInput, bool> func, bool verbose)
+        {
+            bool result = func(arbitraryValue);
+            if (verbose)
+            {
+                Console.WriteLine("Testing with input `" + Util.Repr(arbitraryValue) + "': " + ((result) ? "OK" : "FAIL"));
+            }
+            return result;
         }
     }
 }

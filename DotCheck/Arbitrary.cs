@@ -7,11 +7,11 @@ namespace DotCheck
 {
     class Arbitrary<T>
     {
-        public Func<T> Generator;
+        public Func<Random, T> Generator;
 
-        public Func<T> Shrinker;
+        public Func<T, IEnumerable<T>> Shrinker;
 
-        public Arbitrary(Func<T> gen, Func<T> shrinker)
+        public Arbitrary(Func<Random, T> gen, Func<T, IEnumerable<T>> shrinker)
         {
             Generator = gen;
             Shrinker = shrinker;
@@ -19,7 +19,9 @@ namespace DotCheck
 
         public Arbitrary()
         {
-            // TODO: Complete member initialization
+            // Default initializations
+            Generator = null;
+            Shrinker = null;
         }
     }
 }

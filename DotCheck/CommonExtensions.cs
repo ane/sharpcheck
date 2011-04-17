@@ -1,5 +1,5 @@
 ﻿/*
- * ArbitraryCheck - A port of QuickCheck to C#
+ * DotCheck - A port of QuickCheck to C#
  * 
  * Copyright (c) 2011, Antoine Kalmbach <ane@iki.fi>
  * All rights reserved.
@@ -36,58 +36,75 @@ namespace DotCheck
 {
     static class CommonExtensions
     {
-        public static Int32 Arbitrary(this Int32 discard)
-        {
-            Random random = new Random();
-            return random.Next(Int32.MinValue, Int32.MaxValue);
-        }
+        static int arraySize = 0;
+        static int stringSize = 0;
 
-        public static char Arbitrary(this char discard)
+        public static IEnumerable<int> ShrinkInt(int startValue)
         {
-            Random rand = new Random();
-            return (char) rand.Next(Char.MinValue, Char.MaxValue);
-        }
-
-        public static bool Arbitrary(this bool discard)
-        {
-            Random rand = new Random();
-            return rand.Next(0, 2) == 1 ? true : false; 
-        }
-
-        public static string Arbitrary(this string discard)
-        {
-            StringBuilder sb = new StringBuilder();
-            Random rand = new Random();
-            int strLength = rand.Next(0, 255);
-
-            for (int i = 0; i < strLength; i++)
+            int shrunk = startValue / 2;
+            while (Math.Abs(shrunk) >= 1)
             {
-                sb.Append('a'.Arbitrary());
-            }
-
-            return sb.ToString();
-        }
-
-        public static IEnumerable<T> Arbitrary<T>(this IEnumerable<T> discard)
-        {
-            Random random = new Random();
-            Type genericType = typeof(T);
-            if (genericType.HasArbitrary())
-            {
-                int listSize = random.Next(50);
-                List<T> myList = new List<T>(listSize);
-
-                for (int i = 0; i < listSize; i++)
-                {
-                    myList.Add(Check.CallArbitrary<T>());
-                }
-
-                return myList;
-            }
-            else
-            {
-                throw new InvalidOperationException("WTF!");
+                if (shrunk < 0)
+                    yield return -shrunk;
+                else yield return shrunk;
+                shrunk /= 2;
             }
         }
+
+        public static Arbitrary<int> Arbitrary = new Arbitrary<int>()
+        {
+            // Returns a random number.
+            Generator = (rand) => { return rand.Next(Int32.MinValue, Int32.MaxValue); },
+            Shrinker = ShrinkInt
+        };
+        
+        //public static Int32 Arbitrary(this Int32 discard, Random rand)
+        //{
+        //    return rand.Next(Int32.MinValue, Int32.MaxValue);
+        //}
+
+        //public static char Arbitrary(this char discard, Random rand)
+        //{
+        //    return (char) rand.Next(49, 255);
+        //}
+
+        //public static bool Arbitrary(this bool discard, Random rand)
+        //{
+        //    return rand.Next(0, 2) == 1 ? true : false; 
+        //}
+
+        //public static string Arbitrary(this string discard, Random rand)
+        //{
+        //    StringBuilder sb = new StringBuilder();
+        //    int strLength = stringSize++;
+
+        //    for (int i = 0; i < strLength; i++)
+        //    {
+        //        sb.Append('a'.Arbitrary(rand));
+        //    }
+
+        //    return sb.ToString();
+        //}
+
+        //public static IEnumerable<T> Arbitrary<T>(this IEnumerable<T> discard, Random rand)
+        //{
+        //    Type genericType = typeof(T);
+        //    if (genericType.HasArbitrary())
+        //    {
+        //        int listSize = arraySize++;
+        //        List<T> myList = new List<T>(listSize);
+ 
+        //        for (int i = 0; i < listSize; i++)
+        //        {
+        //            myList.Add(Check.CallArbitrary<T>(rand));
+        //        }
+
+        //        return myList;
+        //    }
+        //    else
+        //    {
+        //        throw new InvalidOperationException("WTF!");
+        //    }
+        //}
     }
 }
