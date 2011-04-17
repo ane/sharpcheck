@@ -51,13 +51,13 @@ namespace DotCheck
             }
         }
 
-        public static Arbitrary<int> Arbitrary = new Arbitrary<int>()
+        public static Arbitrary<int> ArbitraryInt = new Arbitrary<int>()
         {
             // Returns a random number.
             Generator = (rand) => { return rand.Next(Int32.MinValue, Int32.MaxValue); },
             Shrinker = ShrinkInt
         };
-        
+
         //public static Int32 Arbitrary(this Int32 discard, Random rand)
         //{
         //    return rand.Next(Int32.MinValue, Int32.MaxValue);

@@ -5,8 +5,10 @@ using System.Text;
 
 namespace DotCheck
 {
-    class Arbitrary<T>
+    sealed class Arbitrary<T>
     {
+        public int GenerationSize = 0; 
+
         public Func<Random, T> Generator;
 
         public Func<T, IEnumerable<T>> Shrinker;

@@ -50,8 +50,8 @@ namespace DotCheck
                 return str.ToList<char>().All(c => c.GetType() == typeof(char));
             };
 
-            Check.Verbose<int>(input => Math.Abs(input) >= 0);
-            //Check.Quick<List<int>>(inp => inp.Take(5).Count() <= 5);
+            //Check.Verbose<int>(input => Math.Abs(input) >= 0);
+            Check.Verbose<List<int>>(inp => inp.Take(5).Count() <= 5);
             //prop_all_char.Quick();
             Console.Read();
         }

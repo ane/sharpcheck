@@ -42,68 +42,93 @@ namespace DotCheck
         private static int NumChecks = 100;
 
         private static Random rand = new Random((int)DateTime.Now.Ticks);
-
-
+        
         /// <summary>
-        /// Gets the Arbitrary methods defined for typeName. If the type does not implement it, it returns an empty list.
+        /// Gets the Generator methods defined for typeName. If the type does not implement it, it returns an empty list.
         /// </summary>
         /// <param name="typeName">The type to check.</param>
         /// <returns>The list of Arbitrary methods.</returns>
         public static IEnumerable<MethodInfo> GetGenerators(this Type typeName)
         {
-            // Get the extension methods for the TInput type by querying all types and methods
-            // in the current assembly.
-            // See also: http://stackoverflow.com/questions/299515/c-reflection-to-identify-extension-methods
-            var methods = typeof(Check).Assembly.GetTypes().Where(t => t.IsSealed && !t.IsGenericType && !t.IsNested)
-                          .SelectMany(type => type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic));
-            var extensionMethods = from method in methods
-                                   where method.IsDefined(typeof(ExtensionAttribute), false)
-                                   && method.Name == "Arbitrary"
-                                   select method;
-
             // If typeName is a generic type, check for methods that implement a return type for the generic type signature.
             if (typeName.IsGenericType)
             {
                 Type[] typeArguments = typeName.GetGenericArguments();
-                // Look for "Arbitrary" methods that have generic type signatures.
-                var genericExtensionMethods = extensionMethods.Where(method => method.ReturnType.IsGenericType);
-                // Get the generic arguments for typeName and check that they have Arbitrary methods implemented.
-                foreach (var genericArgument in typeName.GetGenericArguments())
+                foreach (var typeArgument in typeArguments)
                 {
-                    // Return an empty list if the type parameters had no arbitrary things.
-                    if (!genericArgument.HasArbitrary())
-                        return new List<MethodInfo>();
+                    if (!typeArgument.HasGenerators())
+                        throw new ArgumentException("The generic parameter type `" + typeArgument.Name + "' for `" + typeName.Name + "' has no generators defined!");
+                }
+                // First case: typeName does implement IEnumerable.
+                Type enumerableType = typeof(IEnumerable<>).MakeGenericType(typeArguments);
+
+                if (enumerableType.IsAssignableFrom(typeName) && typeArguments.Count() == 1)
+                {
+                    // Initialize GenericExtesnions with the same type arguments.
+                    var arbitraryEnumerable = typeof(GenericExtensions<>).MakeGenericType(typeArguments);
+                    var arbitrary = arbitraryEnumerable.GetField("ArbitraryEnumerable").GetValue(null);
+                    FieldInfo generatorField = typeof(Arbitrary<>).MakeGenericType(typeof(IEnumerable<>).MakeGenericType(typeArguments)).GetField("Generator");
+                    MulticastDelegate generator = (MulticastDelegate)generatorField.GetValue(arbitrary);
+
+                    return new MethodInfo[] { generator.Method };
                 }
 
-                // Filter unplausible methods.
-                var arbitraryMethods = from method in genericExtensionMethods
-                                       // Check if typeName implements any of the interfaces in the method,
-                                       // i.e. checks if "List" implements "IEnumerable".
-                                       let isAssignable = method.ReturnType.GetInterfaces().Join(typeName.GetInterfaces(),
-                                                          t1 => t1.Name, t2 => t2.Name, (t1, t2) => t1 == t2)
-                                       where isAssignable.All(foo => foo == true) && method.GetGenericArguments().Count() == typeName.GetGenericArguments().Count()
-                                       select method;
-                // Turn the methods into generic ones.
-                arbitraryMethods = arbitraryMethods.Select(method => method.MakeGenericMethod(typeName.GetGenericArguments()));
-                return arbitraryMethods;
+                return Enumerable.Empty<MethodInfo>();
             }
             else
             {
-                // Instantiate a generic type of Arbitrary<typeName>
-                Type arbitraryType = typeof(Arbitrary<>).MakeGenericType(typeName);
-                // Find all types in the current assembly, and look for fields of the above type
-                // (e.g. given int, instances of Arbitrary<int>)
-                var types = typeof(Check).Assembly.GetTypes().Where(t => t.IsSealed && !t.IsNested && !t.IsGenericType);
-                var arbitraryInstanceFields = types.SelectMany(t => t.GetFields()).Where(fi => fi.FieldType == arbitraryType);
-                // Map all generators from the above instances.
-                FieldInfo generatorField = typeof(Arbitrary<>).MakeGenericType(typeName).GetField("Generator");
-                var arbitraryGenerators = arbitraryInstanceFields.Select(fi => fi.GetValue(null)).Select(obj => generatorField.GetValue(obj));
-                // Pop the first generator, there might be multiple.
-                // TODO: Which sea^Wmethod should I take?
-                var firstGenerator = (MulticastDelegate)arbitraryGenerators.First();
-                // Get invocation information from the generator.
-                return new[] { firstGenerator.Method };
+                return ExtractDelegate(typeName, "Generator");
             }
+        }
+
+        private static IEnumerable<MethodInfo> ExtractDelegate(this Type typeName, string methodName)
+        {
+            // Instantiate a generic type of Arbitrary<typeName>
+            Type arbitraryType = typeof(Arbitrary<>).MakeGenericType(typeName);
+            // Find all types in the current assembly, and look for fields of the above type
+            // (e.g. given int, instances of Arbitrary<int>)
+            var types = typeof(Check).Assembly.GetTypes().Where(t => t.IsSealed && !t.IsNested);
+            var arbitraryInstanceFields = types.SelectMany(t => t.GetFields()).Where(fi => fi.FieldType == arbitraryType);
+            // Map all generators from the above instances.
+            FieldInfo generatorField = typeof(Arbitrary<>).MakeGenericType(typeName).GetField(methodName);
+            var arbitraryMethods = arbitraryInstanceFields.Select(fi => fi.GetValue(null)).Select(obj => generatorField.GetValue(obj));
+            // Pop the first generator, there might be multiple.
+            // TODO: Which sea^Wmethod should I take?
+            MulticastDelegate firstDelegate = null;
+            List<string> errors = new List<string>();
+            try 
+            {
+                firstDelegate = (MulticastDelegate)arbitraryMethods.First();
+
+                // Do some sanity checking.
+                if (firstDelegate != null)
+                {
+                    Type returnType = firstDelegate.Method.ReturnType;
+                    if (returnType != typeName)
+                        errors.Add("The definition of Arbitrary<" + typeName.Name + ">."+methodName+" has an invalid return type: expected " + typeName.Name + ", received `" + returnType.Name + "'");
+                    if (firstDelegate.Method.GetParameters().Count() != 1)
+                        errors.Add("The definition of Arbitrary<" + typeName.Name + ">."+methodName+" has too many arguments: " + firstDelegate.Method.GetParameters().Count() +
+                            " , limit is 1. ");
+                }
+                // Any errors?
+                if (errors.Count() > 0)
+                    throw new ArgumentException(errors.Aggregate((s, o) => { return s + o; }));
+
+                // Get invocation information from the generator.
+                return new[] { firstDelegate.Method };
+            }
+            catch (NullReferenceException nfe)
+            {
+                errors.Insert(0, "Type `" + typeName.Name + "' does not have an instance of Arbitrary<T> defined or it is null.");
+                string exc = errors.Aggregate((str, orig) => { return str + orig; });
+                // Check that the generator is not a null reference.
+                throw new ArgumentException("exc", nfe);
+            }
+        }
+
+        public static IEnumerable<MethodInfo> GetShrinker(this Type typeName)
+        {
+            return ExtractDelegate(typeName, "Shrinker");
         }
 
         /// <summary>
@@ -111,25 +136,25 @@ namespace DotCheck
         /// </summary>
         /// <param name="typeName"></param>
         /// <returns></returns>
-        public static bool HasArbitrary(this Type typeName)
+        public static bool HasGenerators(this Type typeName)
         {
             return GetGenerators(typeName).Any();
         }
 
         /// <summary>
-        /// Calls the Arbitrary method for this type.
+        /// Calls the Arbitrary method for this type. Useful if you want to generate a single random value of a type.
         /// </summary>
         /// <typeparam name="TInput">The type parameter to call Arbitrary for.</typeparam>
         /// <returns>A value returned by Arbitrary.</returns>
         /// <exception cref="ArgumentException"></exception>
-        public static TInput CallArbitrary<TInput>(Random rand)
+        public static TInput Generate<TInput>(Random rand)
         {
             Type inputType = typeof(TInput);
-            if (HasArbitrary(inputType))
+            if (HasGenerators(inputType))
             {
                 var arbitraryMethods = GetGenerators(inputType);
                 MethodInfo method = arbitraryMethods.First();
-                return (TInput)method.Invoke(null, new object[] { null, rand });
+                return (TInput)method.Invoke(null, new object[] { rand });
             }
             else
             {
@@ -139,22 +164,42 @@ namespace DotCheck
 
         public static void Quick<TInput>(this Func<TInput, bool> func)
         {
-            Quick<TInput>(func, false);
+            Quick<TInput>(func, null, false);
+        }
+
+        public static void Quick<TInput>(this Func<TInput, bool> propertyFunc, Arbitrary<TInput> arbitrary)
+        {
+            Quick<TInput>(propertyFunc, arbitrary, false);
         }
 
         public static void Verbose<TInput>(this Func<TInput, bool> func)
         {
-            Quick<TInput>(func, true);
+            Quick<TInput>(func, null, true);
+        }
+
+        public static void Verbose<TInput>(this Func<TInput, bool> func, Arbitrary<TInput> arbitrary)
+        {
+            Quick<TInput>(func, arbitrary, true);
         }
 
         /// <summary>
-        /// Checks that the invariant func matches for arbitrary TInputs of TInput.
+        /// Checks whether a given function invariant returns true for arbitrary inputs of a given type, using a supplied arbitrary generator and shrinker to generate said arbitrary inputs.
         /// </summary>
-        /// <typeparam name="TTInput">The type to generate random TInputs of.</typeparam>
-        /// <param name="propertyFunc">The function invariant to test.</param>
-        public static void Quick<TInput>(this Func<TInput, bool> propertyFunc, bool verbose)
+        /// <typeparam name="TInput">The type to supply arbitrary values of.</typeparam>
+        /// <param name="propertyFunc">The invariant function.</param>
+        /// <param name="arbitrary">The arbitrary supplier of inputs of type TInput.</param>
+        /// <param name="verbose">Indicates whether test inputs are shown or not.</param>
+        public static void Quick<TInput>(this Func<TInput, bool> propertyFunc, Arbitrary<TInput> arbitrary, bool verbose)
         {
-            var arbitraryMethods = GetGenerators(typeof(TInput));
+            IEnumerable<MethodInfo> arbitraryMethods = null;
+            if (arbitrary != null)
+            {
+                arbitraryMethods = new MethodInfo[] { arbitrary.Generator.Method };
+            }
+            else
+            {
+                arbitraryMethods = GetGenerators(typeof(TInput));
+            }
 
             // Check if Arbitrary is implemented.
             if (arbitraryMethods.Any())
@@ -167,6 +212,7 @@ namespace DotCheck
                 for (; checks < NumChecks; checks++)
                 {
                     // Call Generator with rand.
+                    int foo = method.GetParameters().Count();
                     arbitraryValue = (TInput)method.Invoke(null, new object[] { rand });
                     // Call the Arbitrary method and cast to TInput, tossing the function a discardable null as parameter.
                     // Test the function against the arbitrary value.
