@@ -289,8 +289,14 @@ namespace DotCheck
         /// <typeparam name="TInput">The type to supply arbitrary values of.</typeparam>
         /// <param name="propertyFunc">The invariant function.</param>
         /// <param name="arbitrary">The arbitrary supplier of inputs of type TInput.</param>
-        /// <param name="verbose">Indicates whether test inputs are shown or not.</param>
-        private static void Quick<TInput>(this Func<TInput, bool> propertyFunc, Arbitrary<TInput> arbitrary, bool verbose)
+        /// <param name="showDickButtKikkiHiiri">
+        ///     haista vittu t: kikki hiiri
+        /// 
+        ///     http://26.media.tumblr.com/tumblr_kwb3e2OrOZ1qa0m3lo1_250.gif
+        /// 
+        ///     -> http://www.youtube.com/watch?v=81OLczlklYI
+        /// </param>
+        private static void Quick<TInput>(this Func<TInput, bool> propertyFunc, Arbitrary<TInput> arbitrary, bool showDickButtKikkiHiiri)
         {
             IEnumerable<MethodInfo> generatorMethods = null;
             IEnumerable<MethodInfo> shrinkerMethods = null;
@@ -326,7 +332,7 @@ namespace DotCheck
                     arbitraryValue = (TInput)method.Invoke(null, new object[] { rand });
                     // Call the Arbitrary method and cast to TInput, tossing the function a discardable null as parameter.
                     // Test the function against the arbitrary value.
-                    if (!Test<TInput>(arbitraryValue, propertyFunc, verbose))
+                    if (!Test<TInput>(arbitraryValue, propertyFunc, showDickButtKikkiHiiri))
                     {
                         // Check failed, start shrinking.
                         break;
@@ -350,17 +356,17 @@ namespace DotCheck
                         IEnumerable<TInput> shrinks = (IEnumerable<TInput>)shrinker.Invoke(null, new object[] { arbitraryValue });
                         // Loop while the shrinking still holds.
                         IEnumerator<TInput> shrinkIter = shrinks.GetEnumerator();
-                        if (verbose)
+                        if (showDickButtKikkiHiiri)
                             Console.WriteLine("Starting shrinking from value " + Util.Repr(arbitraryValue));
                         foreach (var shrunk in shrinks)
                         {
                             // Stop if the counterexample becomes true, i.e. we've shrunk far enough.
-                            if (Test<TInput>(shrunk, propertyFunc, verbose))
+                            if (Test<TInput>(shrunk, propertyFunc, showDickButtKikkiHiiri))
                                 break;
                             lastShrunk = shrunk;
                             numShrinks++;
                         }
-                        if (verbose)
+                        if (showDickButtKikkiHiiri)
                             Console.WriteLine("Stopped shrinking after " + numShrinks + " shrinks.");
                     }
                     Console.Write("FAILED, falsifiable after " + checks + " tests, with input ");
