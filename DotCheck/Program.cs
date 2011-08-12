@@ -31,6 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Linq.Expressions;
 
 namespace DotCheck
 {
@@ -45,11 +46,6 @@ namespace DotCheck
 
         static void Main(string[] args)
         {
-            
-            Func<string, bool> propAllChar = (str) => {
-                return str.ToList<char>().All(c => c.GetType() == typeof(char));
-            };
-
             Arbitrary<int> oddNumbers = new Arbitrary<int>()
             {
                 Generator = (rand) =>
@@ -61,10 +57,7 @@ namespace DotCheck
                 }
             };
 
-            Check.Quick((int x) => x % 2 == 0, oddNumbers);
-            Check.Verbose((int x) => Math.Abs(x) >= 0);
-            Check.Quick<List<int>>(inp => inp.Take(5).Count() == 5);
-            //prop_all_char.Quick();
+            Check.Verbose((List<List<int>> ls) => ls.Take(5).Count() <= 5);
             Console.Read();
         }
     }

@@ -39,7 +39,7 @@ namespace DotCheck
 {
     static class Check
     {
-        private static int NumChecks = 100;
+        public static int Tests = 100;
 
         private static Random rand = new Random((int)DateTime.Now.Ticks);
 
@@ -249,6 +249,20 @@ namespace DotCheck
             }
         }
 
+        #region Type-based default template aliases
+
+        public static void Quick(this Func<int, bool> func)
+        {
+            Quick(func, CommonExtensions.ArbitraryInt, false);
+        }
+
+        public static void Quick(this Func<int, bool> func, bool verbose)
+        {
+            Quick(func, CommonExtensions.ArbitraryInt, verbose);
+        }
+
+
+        #endregion
         public static void Quick<TInput>(this Func<TInput, bool> func)
         {
             Quick<TInput>(func, null, false);
@@ -276,7 +290,7 @@ namespace DotCheck
         /// <param name="propertyFunc">The invariant function.</param>
         /// <param name="arbitrary">The arbitrary supplier of inputs of type TInput.</param>
         /// <param name="verbose">Indicates whether test inputs are shown or not.</param>
-        public static void Quick<TInput>(this Func<TInput, bool> propertyFunc, Arbitrary<TInput> arbitrary, bool verbose)
+        private static void Quick<TInput>(this Func<TInput, bool> propertyFunc, Arbitrary<TInput> arbitrary, bool verbose)
         {
             IEnumerable<MethodInfo> generatorMethods = null;
             IEnumerable<MethodInfo> shrinkerMethods = null;
@@ -305,7 +319,7 @@ namespace DotCheck
                 int checks = 0;
                 TInput arbitraryValue = default(TInput);
                 // Test the inputs.
-                for (; checks < NumChecks; checks++)
+                for (; checks < Tests; checks++)
                 {
                     // Call Generator with rand.
                     int foo = method.GetParameters().Count();
@@ -319,9 +333,9 @@ namespace DotCheck
                     }
                 }
 
-                if (checks == NumChecks)
+                if (checks == Tests)
                 {
-                    Console.WriteLine("OK, passed " + NumChecks + " tests.");
+                    Console.WriteLine("OK, passed " + Tests + " tests.");
                 }
 
                 else
