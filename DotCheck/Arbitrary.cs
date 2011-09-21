@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace DotCheck
 {
-    sealed class Arbitrary<T>
+    internal sealed class Arbitrary<T>
     {
-        public int GenerationSize = 0; 
+        public int GenerationSize;
 
         public Func<Random, T> Generator;
 
