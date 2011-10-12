@@ -30,34 +30,32 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Linq.Expressions;
 
 namespace DotCheck
 {
-    class CheckTest
+    internal class CheckTest
     {
         public static List<T> reverse<T>(List<T> collection)
         {
-            List<T> newColl = collection.ToList(); 
+            List<T> newColl = collection.ToList();
             newColl.Reverse();
             return newColl;
         }
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
-            Arbitrary<int> oddNumbers = new Arbitrary<int>()
-            {
-                Generator = (rand) =>
-                {
-                    int val = rand.Next();
-                    if (val % 2 == 0)
-                        val = val + 1;
-                    return val;
-                }
-            };
+            var oddNumbers = new Arbitrary<int>
+                                 {
+                                     Generator = (rand) =>
+                                                     {
+                                                         int val = rand.Next();
+                                                         if (val%2 == 0)
+                                                             val = val + 1;
+                                                         return val;
+                                                     }
+                                 };
 
-            Check.Verbose((List<List<int>> ls) => ls.Take(5).Count() <= 5);
+            Check.Quick(x => x%2 == 1, oddNumbers);
             Console.Read();
         }
     }

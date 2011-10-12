@@ -29,19 +29,25 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace DotCheck
 {
-    static class CommonExtensions
+    internal static class CommonExtensions
     {
-        static int arraySize = 0;
-        static int stringSize = 0;
+        private static int arraySize;
+        private static int stringSize;
+
+        public static Arbitrary<int> ArbitraryInt = new Arbitrary<int>
+                                                        {
+                                                            // Returns a random number.
+                                                            Generator =
+                                                                (rand) => { return rand.Next(Int32.MinValue, Int32.MaxValue); },
+                                                            Shrinker = ShrinkInteger
+                                                        };
 
         public static IEnumerable<int> ShrinkInteger(int startValue)
         {
-            int shrunk = startValue / 2;
+            int shrunk = startValue/2;
             while (Math.Abs(shrunk) >= 1)
             {
                 if (shrunk < 0)
@@ -50,13 +56,6 @@ namespace DotCheck
                 shrunk /= 2;
             }
         }
-
-        public static Arbitrary<int> ArbitraryInt = new Arbitrary<int>()
-        {
-            // Returns a random number.
-            Generator = (rand) => { return rand.Next(Int32.MinValue, Int32.MaxValue); },
-            Shrinker = ShrinkInteger
-        };
 
         //public static Int32 Arbitrary(this Int32 discard, Random rand)
         //{
@@ -93,7 +92,7 @@ namespace DotCheck
         //    {
         //        int listSize = arraySize++;
         //        List<T> myList = new List<T>(listSize);
- 
+
         //        for (int i = 0; i < listSize; i++)
         //        {
         //            myList.Add(Check.CallArbitrary<T>(rand));
