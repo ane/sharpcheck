@@ -32,7 +32,7 @@ using System.Collections.Generic;
 
 namespace DotCheck
 {
-    internal static class CommonExtensions
+    static class CommonExtensions
     {
         private static int arraySize;
         private static int stringSize;

@@ -35,7 +35,7 @@ using System.Text;
 
 namespace DotCheck
 {
-    internal static class Util
+    static class Util
     {
         private static string EnumerableRepr<T>(this IEnumerable<T> list)
         {

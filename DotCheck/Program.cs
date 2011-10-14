@@ -33,29 +33,29 @@ using System.Linq;
 
 namespace DotCheck
 {
-    internal class CheckTest
+    class CheckTest
     {
-        public static List<T> reverse<T>(List<T> collection)
+        private static Arbitrary<List<int>> CreateIntegerGenerator(int minSize, int maxSize, int minValue, int maxValue)
         {
-            List<T> newColl = collection.ToList();
-            newColl.Reverse();
-            return newColl;
+            return new Arbitrary<List<int>>
+            {
+                Generator = (rand) =>
+                                {
+                                    int size = rand.Next(minSize, maxSize);
+                                    List<int> numbers = new List<int>(size);
+                                    for (int i = 0; i < size; i++)
+                                    {
+                                        numbers.Add(rand.Next(minValue, maxValue));
+                                    }
+                                    return numbers;
+                                }
+            };
         }
 
-        private static void Main(string[] args)
+        public static void Main(string[] args)
         {
-            var oddNumbers = new Arbitrary<int>
-                                 {
-                                     Generator = (rand) =>
-                                                     {
-                                                         int val = rand.Next();
-                                                         if (val%2 == 0)
-                                                             val = val + 1;
-                                                         return val;
-                                                     }
-                                 };
-
-            Check.Quick(x => x%2 == 1, oddNumbers);
+            Arbitrary<List<int>> generaattori = CreateIntegerGenerator(1, 100, 0, 20);
+            Check.Verbose(lista => lista.Count() >= 1 && lista.Count() <= 100 && lista.All(x => x >= 0 && x <= 20), generaattori);
             Console.Read();
         }
     }

@@ -32,7 +32,7 @@ using System.Collections.Generic;
 
 namespace DotCheck
 {
-    internal sealed class Arbitrary<T>
+    sealed class Arbitrary<T>
     {
         public int GenerationSize;
 

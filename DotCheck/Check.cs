@@ -34,7 +34,7 @@ using System.Reflection;
 
 namespace DotCheck
 {
-    internal static class Check
+    static class Check
     {
         public static int Tests = 100;
 
@@ -326,7 +326,15 @@ namespace DotCheck
                 {
                     // Call Generator with rand.
                     int foo = method.GetParameters().Count();
-                    arbitraryValue = (TInput) method.Invoke(null, new object[] {rand});
+
+                    if (!method.IsStatic && arbitrary != null)
+                    {
+                        arbitraryValue = arbitrary.Generator.Invoke(rand);
+                    }
+                    else
+                    {  
+                        arbitraryValue = (TInput) method.Invoke(null, new object[] {rand});
+                    }
                     // Call the Arbitrary method and cast to TInput, tossing the function a discardable null as parameter.
                     // Test the function against the arbitrary value.
                     if (!Test(arbitraryValue, propertyFunc, verbose))
